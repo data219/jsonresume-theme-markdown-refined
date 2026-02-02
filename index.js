@@ -22,6 +22,49 @@ function mdEscape(text) {
   return out;
 }
 
+function displayUrl(url) {
+  const trimmed = String(url ?? "").trim();
+  if (!trimmed) return "";
+  return trimmed
+    .replace(/^https?:\/\//i, "")
+    .replace(/\/$/, "");
+}
+
+function getCountryLang() {
+  const raw = process.env.JSONRESUME_THEME_MARKDOWN_COUNTRY_LANG;
+  if (!isTruthyStr(raw)) return "en";
+  const lang = raw.trim().toLowerCase();
+  return lang === "de" ? "de" : "en";
+}
+
+function getPresentLabel() {
+  return getCountryLang() === "de" ? "heute" : "present";
+}
+
+function getCountryName(code) {
+  if (!isTruthyStr(code)) return "";
+  const region = code.trim().toUpperCase();
+  if (typeof Intl !== "undefined" && typeof Intl.DisplayNames === "function") {
+    try {
+      const displayNames = new Intl.DisplayNames([getCountryLang()], {
+        type: "region",
+      });
+      const name = displayNames.of(region);
+      if (isTruthyStr(name) && name !== region) return name;
+    } catch (_) {
+      // Fall through to raw region code.
+    }
+  }
+  return region;
+}
+
+function formatDateRange(start, end) {
+  const startVal = isTruthyStr(start) ? start.trim() : "";
+  let endVal = isTruthyStr(end) ? end.trim() : "";
+  if (startVal && !endVal) endVal = getPresentLabel();
+  return joinNonempty([startVal, endVal], " → ");
+}
+
 function joinNonempty(parts, sep) {
   const out = [];
   for (const part of parts) {
@@ -77,48 +120,85 @@ function renderBasics(lines, data) {
     writeLine(lines, mdEscape(summary.trim()));
   }
 
-  const contactBits = [];
-  for (const key of ["email", "phone", "url"]) {
-    const val = basics[key];
-    if (isTruthyStr(val)) contactBits.push(val.trim());
-  }
+  const contactLines = [];
 
   const location = basics.location;
   if (location && typeof location === "object") {
+    const countryName = isTruthyStr(location.countryCode)
+      ? getCountryName(location.countryCode)
+      : "";
     const loc = joinNonempty(
       [
         location.address,
         location.postalCode,
         location.city,
         location.region,
-        location.countryCode,
+        countryName,
       ],
       ", "
     );
-    if (isTruthyStr(loc)) contactBits.push(loc);
-  }
-
-  const profiles = asList(basics.profiles);
-  const profileBits = [];
-  for (const p of profiles) {
-    if (!p || typeof p !== "object") continue;
-    const network = p.network;
-    const username = p.username;
-    const url = p.url;
-    const label = joinNonempty([network, username], ": ");
-    if (isTruthyStr(url) && isTruthyStr(label)) {
-      profileBits.push(`${label} (${url.trim()})`);
-    } else if (isTruthyStr(url)) {
-      profileBits.push(url.trim());
-    } else if (isTruthyStr(label)) {
-      profileBits.push(label);
+    if (isTruthyStr(loc)) {
+      contactLines.push(`📍 ${mdEscape(loc)}`);
     }
   }
 
-  if (contactBits.length || profileBits.length) {
+  const email = basics.email;
+  if (isTruthyStr(email)) {
+    const emailValue = email.trim();
+    const emailText = `[${mdEscape(emailValue)}](mailto:${emailValue})`;
+    contactLines.push(`✉️ ${emailText}`);
+  }
+
+  const phone = basics.phone;
+  if (isTruthyStr(phone)) {
+    const phoneValue = phone.trim();
+    const phoneText = `[${mdEscape(phoneValue)}](tel:${phoneValue})`;
+    contactLines.push(`📞 ${phoneText}`);
+  }
+
+  const url = basics.url;
+  if (isTruthyStr(url)) {
+    const urlValue = url.trim();
+    const display = displayUrl(urlValue) || urlValue;
+    const urlText = `[${mdEscape(display)}](${urlValue})`;
+    contactLines.push(`🔗 ${urlText}`);
+  }
+
+  const profiles = asList(basics.profiles);
+  for (const p of profiles) {
+    if (!p || typeof p !== "object") continue;
+    const network = isTruthyStr(p.network) ? p.network.trim() : "";
+    const username = isTruthyStr(p.username) ? p.username.trim() : "";
+    const profileUrl = isTruthyStr(p.url) ? p.url.trim() : "";
+
+    let display = "";
+    if (profileUrl) {
+      display = displayUrl(profileUrl) || profileUrl;
+    } else if (username) {
+      display = username;
+    } else if (network) {
+      display = network;
+    }
+
+    if (!display) continue;
+
+    const suffix = network ? ` (${mdEscape(network)})` : "";
+    let profileText = "";
+
+    if (profileUrl) {
+      profileText = `[${mdEscape(display)}](${profileUrl})${suffix}`;
+    } else if (username && network) {
+      profileText = `${mdEscape(username)} (${mdEscape(network)})`;
+    } else {
+      profileText = mdEscape(display);
+    }
+
+    contactLines.push(`👤 ${profileText}`);
+  }
+
+  if (contactLines.length) {
     writeLine(lines);
-    if (contactBits.length) writeBullets(lines, contactBits);
-    if (profileBits.length) writeBullets(lines, profileBits);
+    writeBullets(lines, contactLines);
   }
 }
 
@@ -147,7 +227,7 @@ function renderWork(lines, data) {
       writeHeading(lines, 3, mdEscape(header.trim()));
     }
 
-    const dateRange = joinNonempty([start, end], " → ");
+    const dateRange = formatDateRange(start, end);
     if (isTruthyStr(dateRange)) {
       writeLine(lines, mdEscape(dateRange));
     }
@@ -188,7 +268,7 @@ function renderProjects(lines, data) {
     if (isTruthyStr(url)) header = `${header} (${url.trim()})`;
     writeHeading(lines, 3, mdEscape(header));
 
-    const dateRange = joinNonempty([start, end], " → ");
+    const dateRange = formatDateRange(start, end);
     if (isTruthyStr(dateRange)) writeLine(lines, mdEscape(dateRange));
 
     if (isTruthyStr(description)) {
@@ -231,7 +311,7 @@ function renderEducation(lines, data) {
 
     if (isTruthyStr(header)) writeHeading(lines, 3, mdEscape(header.trim()));
 
-    const dateRange = joinNonempty([start, end], " → ");
+    const dateRange = formatDateRange(start, end);
     if (isTruthyStr(dateRange)) writeLine(lines, mdEscape(dateRange));
 
     const gpa = item.gpa;
@@ -433,7 +513,7 @@ function renderVolunteer(lines, data) {
 
     if (isTruthyStr(header)) writeHeading(lines, 3, mdEscape(header.trim()));
 
-    const dateRange = joinNonempty([start, end], " → ");
+    const dateRange = formatDateRange(start, end);
     if (isTruthyStr(dateRange)) writeLine(lines, mdEscape(dateRange));
 
     if (isTruthyStr(summary)) {

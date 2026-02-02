@@ -3,5 +3,8 @@
   "version": "1.0.1",
   "description": "Deterministic Markdown renderer for JSON Resume (Clawdbot).",
   "main": "index.js",
+  "scripts": {
+    "test": "node --test"
+  },
   "license": "MIT"
 }
