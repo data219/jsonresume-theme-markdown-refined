@@ -233,10 +233,16 @@ function renderWork(lines, data) {
     const end = item.endDate;
     const location = item.location;
 
+    const hasPosition = isTruthyStr(position);
+    const hasName = isTruthyStr(name);
+    const hasLocation = isTruthyStr(location);
+    const showCompanyLine = hasPosition && hasName;
+    const showLocationOnlyLine = !hasPosition && hasLocation;
+
     let header = "";
-    if (isTruthyStr(position)) {
+    if (hasPosition) {
       header = position.trim();
-    } else if (isTruthyStr(name)) {
+    } else if (hasName) {
       header = linkLabel(name, url);
     } else if (isTruthyStr(url)) {
       header = url.trim();
@@ -246,19 +252,20 @@ function renderWork(lines, data) {
       writeHeading(lines, 3, mdEscape(header.trim()));
     }
 
-    if (isTruthyStr(position) && isTruthyStr(name)) {
+    if (showCompanyLine) {
       const linkedName = linkLabel(name, url);
-      writeLine(lines, `**${mdEscape(linkedName)}**`);
+      const locSuffix = hasLocation ? `, ***${mdEscape(location.trim())}***` : "";
+      writeLine(lines);
+      writeLine(lines, `**${mdEscape(linkedName)}**${locSuffix}`);
+    } else if (showLocationOnlyLine) {
+      writeLine(lines);
+      writeLine(lines, `***${mdEscape(location.trim())}***`);
     }
 
     const dateRange = formatDateRange(start, end);
     if (isTruthyStr(dateRange)) {
       writeLine(lines);
       writeLine(lines, `*${mdEscape(dateRange)}*`);
-    }
-
-    if (isTruthyStr(location)) {
-      writeLine(lines, mdEscape(location.trim()));
     }
 
     const summary = item.summary;

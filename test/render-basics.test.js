@@ -95,6 +95,13 @@ test("links entity names when urls are present in work, projects, volunteer, and
         endDate: "2023-06",
         location: "Berlin, Germany",
       },
+      {
+        name: "Example Corp",
+        url: "https://example.com",
+        startDate: "2020-01",
+        endDate: "2021-01",
+        location: "Remote",
+      },
     ],
     projects: [
       {
@@ -121,21 +128,55 @@ test("links entity names when urls are present in work, projects, volunteer, and
   const output = theme.render(resume);
   const lines = output.split("\n");
 
-  assert.ok(
-    lines.includes("### Senior Software Developer"),
-    "Expected work heading to include position only"
+  const headingIndex = lines.indexOf("### Senior Software Developer");
+  assert.ok(headingIndex !== -1, "Expected work heading to include position only");
+  assert.strictEqual(
+    lines[headingIndex + 1],
+    "",
+    "Expected blank line after work heading"
   );
-  assert.ok(
-    lines.includes("**[Graph-IT GmbH](https://graph-it.com/)**"),
-    "Expected work company name to be bold and linked"
+  assert.strictEqual(
+    lines[headingIndex + 2],
+    "**[Graph-IT GmbH](https://graph-it.com/)**, ***Berlin, Germany***",
+    "Expected company line with bold linked name and bold italic location"
   );
-  assert.ok(
-    lines.includes("*2021-01 → 2023-06*"),
+  assert.strictEqual(
+    lines[headingIndex + 3],
+    "",
+    "Expected blank line after company line"
+  );
+  assert.strictEqual(
+    lines[headingIndex + 4],
+    "*2021-01 → 2023-06*",
     "Expected work date range to be italic"
   );
+
+  const companyHeadingIndex = lines.indexOf(
+    "### [Example Corp](https://example.com)"
+  );
   assert.ok(
-    lines.includes("Berlin, Germany"),
-    "Expected work location line after date"
+    companyHeadingIndex !== -1,
+    "Expected company name as heading when position missing"
+  );
+  assert.strictEqual(
+    lines[companyHeadingIndex + 1],
+    "",
+    "Expected blank line after company heading"
+  );
+  assert.strictEqual(
+    lines[companyHeadingIndex + 2],
+    "***Remote***",
+    "Expected location-only line when position missing"
+  );
+  assert.strictEqual(
+    lines[companyHeadingIndex + 3],
+    "",
+    "Expected blank line after location-only line"
+  );
+  assert.strictEqual(
+    lines[companyHeadingIndex + 4],
+    "*2020-01 → 2021-01*",
+    "Expected date line after location-only line"
   );
   assert.ok(
     lines.includes("### [Resume Revamp](https://example.com/project)"),
