@@ -1,0 +1,7 @@
+{
+  "name": "jsonresume-theme-clawdbot-markdown",
+  "version": "1.0.1",
+  "description": "Deterministic Markdown renderer for JSON Resume (Clawdbot).",
+  "main": "index.js",
+  "license": "MIT"
+}
