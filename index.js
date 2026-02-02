@@ -65,12 +65,26 @@ function formatDateRange(start, end) {
   return joinNonempty([startVal, endVal], " → ");
 }
 
+function formatDateRangeWithSep(start, end, sep) {
+  const startVal = isTruthyStr(start) ? start.trim() : "";
+  let endVal = isTruthyStr(end) ? end.trim() : "";
+  if (startVal && !endVal) endVal = getPresentLabel();
+  return joinNonempty([startVal, endVal], sep);
+}
+
 function joinNonempty(parts, sep) {
   const out = [];
   for (const part of parts) {
     if (isTruthyStr(part)) out.push(part.trim());
   }
   return out.join(sep);
+}
+
+function linkLabel(label, url) {
+  if (!isTruthyStr(label)) return "";
+  const cleanLabel = label.trim();
+  if (isTruthyStr(url)) return `[${cleanLabel}](${url.trim()})`;
+  return cleanLabel;
 }
 
 function writeLine(lines, line = "") {
@@ -217,19 +231,34 @@ function renderWork(lines, data) {
     const url = item.url;
     const start = item.startDate;
     const end = item.endDate;
+    const location = item.location;
 
-    let header = joinNonempty([position, name], " @ ");
-    if (isTruthyStr(url)) {
-      header = isTruthyStr(header) ? `${header} (${url.trim()})` : url.trim();
+    let header = "";
+    if (isTruthyStr(position)) {
+      header = position.trim();
+    } else if (isTruthyStr(name)) {
+      header = linkLabel(name, url);
+    } else if (isTruthyStr(url)) {
+      header = url.trim();
     }
 
     if (isTruthyStr(header)) {
       writeHeading(lines, 3, mdEscape(header.trim()));
     }
 
+    if (isTruthyStr(position) && isTruthyStr(name)) {
+      const linkedName = linkLabel(name, url);
+      writeLine(lines, `**${mdEscape(linkedName)}**`);
+    }
+
     const dateRange = formatDateRange(start, end);
     if (isTruthyStr(dateRange)) {
-      writeLine(lines, mdEscape(dateRange));
+      writeLine(lines);
+      writeLine(lines, `*${mdEscape(dateRange)}*`);
+    }
+
+    if (isTruthyStr(location)) {
+      writeLine(lines, mdEscape(location.trim()));
     }
 
     const summary = item.summary;
@@ -264,9 +293,9 @@ function renderProjects(lines, data) {
     const start = item.startDate;
     const end = item.endDate;
 
-    let header = isTruthyStr(name) ? name.trim() : "Project";
-    if (isTruthyStr(url)) header = `${header} (${url.trim()})`;
-    writeHeading(lines, 3, mdEscape(header));
+    let header = isTruthyStr(name) ? linkLabel(name, url) : "Project";
+    if (!isTruthyStr(name) && isTruthyStr(url)) header = `${header} (${url.trim()})`;
+    writeHeading(lines, 3, mdEscape(header.trim()));
 
     const dateRange = formatDateRange(start, end);
     if (isTruthyStr(dateRange)) writeLine(lines, mdEscape(dateRange));
@@ -302,29 +331,27 @@ function renderEducation(lines, data) {
     const start = item.startDate;
     const end = item.endDate;
 
-    let header = joinNonempty([studyType, area], " ");
-    if (isTruthyStr(institution) && isTruthyStr(header)) {
-      header = `${header} — ${institution.trim()}`;
-    } else if (isTruthyStr(institution)) {
-      header = institution.trim();
-    }
+    const institutionLine = isTruthyStr(institution) ? institution.trim() : "";
+    if (isTruthyStr(institutionLine)) writeHeading(lines, 3, mdEscape(institutionLine));
 
-    if (isTruthyStr(header)) writeHeading(lines, 3, mdEscape(header.trim()));
+    if (isTruthyStr(area)) writeLine(lines, `**${mdEscape(area.trim())}**`);
 
-    const dateRange = formatDateRange(start, end);
-    if (isTruthyStr(dateRange)) writeLine(lines, mdEscape(dateRange));
+    const dateRange = formatDateRangeWithSep(start, end, " - ");
+    if (isTruthyStr(dateRange)) writeLine(lines, `*${mdEscape(dateRange)}*`);
 
-    const gpa = item.gpa;
-    writeLine(lines);
-    writeKvInline(lines, "GPA", gpa !== undefined && gpa !== null ? String(gpa) : null);
+    if (isTruthyStr(studyType)) writeLine(lines, mdEscape(studyType.trim()));
 
     const courses = asList(item.courses);
     if (courses.length) {
-      writeLine(lines);
-      writeBullets(lines, courses.map((c) => String(c)));
-    } else {
-      writeLine(lines);
+      const courseLine = courses
+        .map((c) => String(c))
+        .filter((c) => isTruthyStr(c))
+        .map((c) => mdEscape(c.trim()))
+        .join(", ");
+      if (isTruthyStr(courseLine)) writeLine(lines, courseLine);
     }
+
+    writeLine(lines);
   }
 }
 
@@ -346,8 +373,13 @@ function renderSkills(lines, data) {
     if (isTruthyStr(header)) writeHeading(lines, 3, mdEscape(header.trim()));
 
     if (keywords.length) {
+      const keywordLine = keywords
+        .map((k) => String(k))
+        .filter((k) => isTruthyStr(k))
+        .map((k) => mdEscape(k.trim()))
+        .join(", ");
+      writeLine(lines, keywordLine);
       writeLine(lines);
-      writeBullets(lines, keywords.map((k) => String(k)));
     } else {
       writeLine(lines);
     }
@@ -446,8 +478,11 @@ function renderCertificates(lines, data) {
     const date = item.date;
     const url = item.url;
 
-    let header = joinNonempty([name, issuer], " — ");
-    if (isTruthyStr(url)) header = isTruthyStr(header) ? `${header} (${url.trim()})` : url.trim();
+    const linkedName = linkLabel(name, url);
+    let header = joinNonempty([linkedName, issuer], " — ");
+    if (!isTruthyStr(name) && isTruthyStr(url)) {
+      header = isTruthyStr(header) ? `${header} (${url.trim()})` : url.trim();
+    }
 
     if (isTruthyStr(header)) {
       writeLine(lines, `- ${mdEscape(header.trim())}`);
@@ -508,8 +543,11 @@ function renderVolunteer(lines, data) {
     const summary = item.summary;
     const highlights = asList(item.highlights);
 
-    let header = joinNonempty([position, organization], " @ ");
-    if (isTruthyStr(url)) header = isTruthyStr(header) ? `${header} (${url.trim()})` : url.trim();
+    const linkedOrg = linkLabel(organization, url);
+    let header = joinNonempty([position, linkedOrg], " @ ");
+    if (!isTruthyStr(organization) && isTruthyStr(url)) {
+      header = isTruthyStr(header) ? `${header} (${url.trim()})` : url.trim();
+    }
 
     if (isTruthyStr(header)) writeHeading(lines, 3, mdEscape(header.trim()));
 
