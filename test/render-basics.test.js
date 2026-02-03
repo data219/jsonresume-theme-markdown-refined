@@ -6,6 +6,7 @@ test("renders contact info with emoji icons, markdown links, and country name ma
   const resume = {
     basics: {
       name: "Alex Doe",
+      label: "Tech Lead / Team Lead",
       email: "alex@example.com",
       url: "https://example.dev",
       location: {
@@ -23,6 +24,12 @@ test("renders contact info with emoji icons, markdown links, and country name ma
 
   const output = theme.render(resume);
   const lines = output.split("\n");
+
+  assert.ok(lines.includes("# Alex Doe"), "Expected name as top-level heading");
+  assert.ok(
+    lines.includes("## Tech Lead / Team Lead"),
+    "Expected label as level-2 heading"
+  );
 
   const expectedLines = [
     "- 📍 Sampletown, Germany",
@@ -215,11 +222,19 @@ test("renders skill keywords as a single comma-separated line with empty line wh
   const lines = output.split("\n");
 
   assert.ok(
-    lines.includes("### Backend — Senior"),
+    lines.includes("### Backend (Senior)"),
     "Expected skill heading for Backend"
   );
-  assert.ok(
-    lines.includes("PHP, Symfony, PostgreSQL"),
+  const backendIndex = lines.indexOf("### Backend (Senior)");
+  assert.ok(backendIndex !== -1, "Expected Backend heading index");
+  assert.strictEqual(
+    lines[backendIndex + 1],
+    "",
+    "Expected blank line before keywords"
+  );
+  assert.strictEqual(
+    lines[backendIndex + 2],
+    "PHP, Symfony, PostgreSQL",
     "Expected keywords to be comma-separated on one line"
   );
   const cloudIndex = lines.indexOf("### Cloud");
@@ -229,6 +244,30 @@ test("renders skill keywords as a single comma-separated line with empty line wh
     "",
     "Expected empty line after Cloud when no keywords"
   );
+});
+
+test("renders languages with fluency in parentheses", () => {
+  const resume = {
+    basics: {
+      name: "Alex Doe",
+    },
+    languages: [
+      {
+        language: "German",
+        fluency: "Native",
+      },
+      {
+        language: "English",
+        fluency: "Fluent",
+      },
+    ],
+  };
+
+  const output = theme.render(resume);
+  const lines = output.split("\n");
+
+  assert.ok(lines.includes("- German (Native)"), "Expected German fluency");
+  assert.ok(lines.includes("- English (Fluent)"), "Expected English fluency");
 });
 
 test("renders education entries with institution heading, bold area, italic dates, and study type", () => {
@@ -251,18 +290,37 @@ test("renders education entries with institution heading, bold area, italic date
   const output = theme.render(resume);
   const lines = output.split("\n");
 
-  assert.ok(
-    lines.includes("### State University"),
-    "Expected institution heading"
+  const eduIndex = lines.indexOf("### State University");
+  assert.ok(eduIndex !== -1, "Expected institution heading");
+  assert.strictEqual(
+    lines[eduIndex + 1],
+    "",
+    "Expected blank line after institution"
   );
-  assert.ok(lines.includes("**Computer Science**"), "Expected bold area line");
-  assert.ok(
-    lines.includes("*2016 - 2020*"),
+  assert.strictEqual(
+    lines[eduIndex + 2],
+    "**Computer Science**",
+    "Expected bold area line"
+  );
+  assert.strictEqual(
+    lines[eduIndex + 3],
+    "",
+    "Expected blank line after area"
+  );
+  assert.strictEqual(
+    lines[eduIndex + 4],
+    "*2016 - 2020*",
     "Expected italic date range with hyphen"
   );
-  assert.ok(lines.includes("BSc"), "Expected study type line");
-  assert.ok(
-    lines.includes("Algorithms, Distributed Systems"),
+  assert.strictEqual(
+    lines[eduIndex + 5],
+    "",
+    "Expected blank line after date"
+  );
+  assert.strictEqual(lines[eduIndex + 6], "BSc", "Expected study type line");
+  assert.strictEqual(
+    lines[eduIndex + 7],
+    "Algorithms, Distributed Systems",
     "Expected courses as final line"
   );
 });

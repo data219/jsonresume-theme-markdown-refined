@@ -118,14 +118,18 @@ function renderBasics(lines, data) {
 
   const name = basics.name;
   const label = basics.label;
-  const headline = joinNonempty([name, label], " — ");
 
-  if (isTruthyStr(headline)) {
-    writeHeading(lines, 1, mdEscape(headline.trim()));
-  } else if (isTruthyStr(name)) {
+  if (isTruthyStr(name)) {
     writeHeading(lines, 1, mdEscape(name.trim()));
+  } else if (isTruthyStr(label)) {
+    writeHeading(lines, 1, mdEscape(label.trim()));
   } else {
     writeHeading(lines, 1, "Resume");
+  }
+
+  if (isTruthyStr(name) && isTruthyStr(label)) {
+    writeLine(lines);
+    writeHeading(lines, 2, mdEscape(label.trim()));
   }
 
   const summary = basics.summary;
@@ -341,21 +345,42 @@ function renderEducation(lines, data) {
     const institutionLine = isTruthyStr(institution) ? institution.trim() : "";
     if (isTruthyStr(institutionLine)) writeHeading(lines, 3, mdEscape(institutionLine));
 
-    if (isTruthyStr(area)) writeLine(lines, `**${mdEscape(area.trim())}**`);
-
+    const areaLine = isTruthyStr(area) ? `**${mdEscape(area.trim())}**` : "";
     const dateRange = formatDateRangeWithSep(start, end, " - ");
-    if (isTruthyStr(dateRange)) writeLine(lines, `*${mdEscape(dateRange)}*`);
-
-    if (isTruthyStr(studyType)) writeLine(lines, mdEscape(studyType.trim()));
+    const dateLine = isTruthyStr(dateRange) ? `*${mdEscape(dateRange)}*` : "";
+    const studyTypeLine = isTruthyStr(studyType) ? mdEscape(studyType.trim()) : "";
 
     const courses = asList(item.courses);
-    if (courses.length) {
-      const courseLine = courses
-        .map((c) => String(c))
-        .filter((c) => isTruthyStr(c))
-        .map((c) => mdEscape(c.trim()))
-        .join(", ");
-      if (isTruthyStr(courseLine)) writeLine(lines, courseLine);
+    const courseLine = courses
+      .map((c) => String(c))
+      .filter((c) => isTruthyStr(c))
+      .map((c) => mdEscape(c.trim()))
+      .join(", ");
+
+    const hasFollowing =
+      isTruthyStr(areaLine) ||
+      isTruthyStr(dateLine) ||
+      isTruthyStr(studyTypeLine) ||
+      isTruthyStr(courseLine);
+
+    if (isTruthyStr(institutionLine) && hasFollowing) writeLine(lines);
+
+    if (isTruthyStr(areaLine)) {
+      writeLine(lines, areaLine);
+      if (isTruthyStr(dateLine) || isTruthyStr(studyTypeLine) || isTruthyStr(courseLine)) {
+        writeLine(lines);
+      }
+    }
+
+    if (isTruthyStr(dateLine)) {
+      writeLine(lines, dateLine);
+      if (isTruthyStr(studyTypeLine) || isTruthyStr(courseLine)) writeLine(lines);
+    }
+
+    if (isTruthyStr(studyTypeLine)) writeLine(lines, studyTypeLine);
+    if (isTruthyStr(courseLine)) {
+      if (!isTruthyStr(studyTypeLine) && isTruthyStr(dateLine)) writeLine(lines);
+      writeLine(lines, courseLine);
     }
 
     writeLine(lines);
@@ -376,7 +401,8 @@ function renderSkills(lines, data) {
     const level = item.level;
     const keywords = asList(item.keywords);
 
-    const header = joinNonempty([name, level], " — ");
+    let header = isTruthyStr(name) ? name.trim() : "";
+    if (isTruthyStr(level)) header = header ? `${header} (${level.trim()})` : level.trim();
     if (isTruthyStr(header)) writeHeading(lines, 3, mdEscape(header.trim()));
 
     if (keywords.length) {
@@ -385,6 +411,7 @@ function renderSkills(lines, data) {
         .filter((k) => isTruthyStr(k))
         .map((k) => mdEscape(k.trim()))
         .join(", ");
+      writeLine(lines);
       writeLine(lines, keywordLine);
       writeLine(lines);
     } else {
@@ -405,7 +432,10 @@ function renderLanguages(lines, data) {
 
     const language = item.language;
     const fluency = item.fluency;
-    const val = joinNonempty([language, fluency], " — ");
+    let val = isTruthyStr(language) ? language.trim() : "";
+    if (isTruthyStr(fluency)) {
+      val = val ? `${val} (${fluency.trim()})` : fluency.trim();
+    }
     if (isTruthyStr(val)) writeLine(lines, `- ${mdEscape(val.trim())}`);
   }
 
